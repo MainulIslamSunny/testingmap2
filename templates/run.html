@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Interactive Map with Sidebar</title>
+
+    <script>
+        L_NO_TOUCH = false;
+        L_DISABLE_3D = false;
+    </script>
+
+    <!-- Leaflet CSS and JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+
+    <!-- Leaflet Draw CSS and JS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.2/leaflet.draw.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.2/leaflet.draw.js"></script>
+
+    <!-- jQuery and Bootstrap for sidebar -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 300px; /* Leave space for the sidebar */
+            right: 0;
+        }
+
+        #sidebar {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 300px;
+            background-color: #9a94f8;
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .leaflet-container {
+            font-size: 1rem;
+        }
+
+        #location-details {
+            border: 2px solid #bfbaf1;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #9a94f8;
+            margin-top: 10px;
+            color: #ffffff;
+        }
+
+        #sidebar h4 {
+           color: #ffffff; /* Set the text color to white */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <h4>Selected Location</h4>
+        <div id="location-details">No Location Selected</div>
+    </div>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+    <script>
+        // Initialize the map
+        var map = L.map('map', {
+            center: [23.7808405, 90.419689],
+            zoom: 10,
+            zoomControl: true,
+            preferCanvas: false,
+        });
+
+        // Add a tile layer
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19,
+            minZoom: 0,
+            noWrap: false,
+        }).addTo(map);
+
+        // Options for drawing tools
+        var options = {
+            position: 'topleft',
+            draw: {
+                circle: true,
+                circlemarker: false,
+                polygon: false,
+                polyline: false,
+                marker: false,
+                rectangle: true
+            },
+            edit: {
+                edit: true,
+                remove: true
+            }
+        };
+
+        // FeatureGroup is to store editable layers.
+        var drawnItems = new L.featureGroup().addTo(map);
+        options.edit.featureGroup = drawnItems;
+
+        // Initialize the draw control and add it to the map
+        var drawControl = new L.Control.Draw(options).addTo(map);
+
+        // Function to perform reverse geocoding using Nominatim API
+        function getLocationInfo(lat, lng) {
+            $.getJSON('https://nominatim.openstreetmap.org/reverse', {
+                lat: lat,
+                lon: lng,
+                format: 'json'
+            }, function(data) {
+                if (data && data.display_name) {
+                    document.getElementById('location-details').innerHTML = data.display_name;
+                } else {
+                    document.getElementById('location-details').innerHTML = "No location information available.";
+                }
+            });
+        }
+
+        // Event handler for when a shape is drawn
+        map.on(L.Draw.Event.CREATED, function (e) {
+            var layer = e.layer;
+            var type = e.layerType;
+
+            if (type === 'rectangle' || type === 'circle') {
+                var center;
+                if (type === 'rectangle') {
+                    center = layer.getBounds().getCenter();
+                } else if (type === 'circle') {
+                    center = layer.getLatLng();
+                }
+
+                // Update sidebar with location information
+                getLocationInfo(center.lat, center.lng);
+            }
+
+            // Add the shape to the map
+            drawnItems.addLayer(layer);
+        });
+
+        // Initial display message in the sidebar
+        document.getElementById('location-details').innerHTML = "No Location Selected";
+
+        // Reset the sidebar if all layers are removed
+        map.on('draw:deleted', function () {
+            if (drawnItems.getLayers().length === 0) {
+                document.getElementById('location-details').innerHTML = "No Location Selected";
+            }
+        });
+
+    </script>
+</body>
+</html>
